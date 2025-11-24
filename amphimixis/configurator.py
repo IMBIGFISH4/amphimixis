@@ -2,26 +2,28 @@
 
 from os import path, getcwd
 from platform import machine as local_arch
-import logging
 import pickle
 import yaml
+
 from amphimixis.general import general
-from amphimixis.build_systems import build_systems_dict
 from amphimixis.shell import Shell
+from amphimixis.build_systems import build_systems_dict
+from amphimixis.logger import setup_logger
 from amphimixis.validator import validate
 
 DEFAULT_PORT = 22
 INPUT_FILE_NAME = "input.yml"
+
+logger = setup_logger("configurator")
 
 
 def parse_config(project: general.Project) -> None:
     """Module enter function"""
 
     if not path.exists(project.path):
-        raise FileNotFoundError("Incorrect project path @_@, check input arguments")
+        logger.error("Incorrect project path @_@, check input arguments")
+        raise FileNotFoundError()
 
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(__name__)
     project.builds = []
 
     validate(INPUT_FILE_NAME)
@@ -118,7 +120,8 @@ def _get_by_id(items: list[dict[str, str]], target_id: str) -> dict[str, str]:
         if item["id"] == target_id:
             return item
 
-    raise LookupError("Item id didn't match any existed id, check input file")
+    logger.error("Item id didn't match any existed id, check input file")
+    raise LookupError()
 
 
 def _has_valid_arch(machine: general.MachineInfo) -> None:
@@ -126,20 +129,27 @@ def _has_valid_arch(machine: general.MachineInfo) -> None:
 
     if machine.address is None:
         if machine.arch.lower() not in local_arch().lower():
-            raise TypeError(
-                f"Invalid local machibe arch: {machine.arch.name.lower()}, "
-                f"your machine is {local_arch().lower()}"
+            logger.error(
+                "Invalid local machibe arch: %s, your machine is %s",
+                machine.arch.name.lower(),
+                local_arch().lower(),
             )
+            raise TypeError()
+
     else:
         shell = Shell(machine).connect()
         error_code, stdout, _ = shell.run("uname -m")
         if error_code != 0:
-            raise ValueError(
+            logger.error(
                 "An error occured during reading remote machine arch, check remote machine"
             )
+            raise ValueError()
+
         remote_arch = stdout[0][0]
         if machine.arch.lower() not in remote_arch.lower():
-            raise TypeError(
-                f"Invalid remote machibe arch: {machine.arch.name.lower()}, "
-                f"remote machine is {remote_arch.lower()}"
+            logger.error(
+                "Invalid remote machibe arch: %s, remote machine is %s",
+                machine.arch.name.lower(),
+                remote_arch.lower(),
             )
+            raise TypeError()
