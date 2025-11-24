@@ -1,21 +1,22 @@
 """Module that analyzes project's repository and creates file with its information"""
 
 import glob
-import json
 from os import path, listdir
-import sys
-from amphimixis import general
-from amphimixis.general import Colors
+import yaml
+from amphimixis import general, logger
 
-_TAB = 16
+log = logger.setup_logger("ANALYZER")
 
 ci_list = ["**/ci", "**/.github/workflows"]
 
 build_systems_list = {
-    "**/CMakeLists.txt": "cmake",
-    "**/configure.ac": "autoconf",
-    "**/*meson": "meson",
-    "**/*bazel": "bazel",
+    "cmake": ["**/CMakeLists.txt"],
+    "meson": ["**/*meson*"],
+    "bazel": ["**/*bazel*", "**/BUILD"],
+    "make": ["**/Makefile", "**/makefile"],
+    "SCons": ["**SCons*"],
+    "autotools": ["**/configure.ac", "**/configure.in"],
+    "needs_bootstrap": ["bootstrap"],
 }
 
 
@@ -26,39 +27,29 @@ def analyze(project: general.Project):
         "tests": [],
         "benchmarks": [],
         "ci": [],
-        "build_systems": {
-            "cmake": False,
-            "autoconf": False,
-            "meson": False,
-            "bazel": False,
-        },
+        "build_systems": {k: False for k in build_systems_list},
         "dependencies": [],
     }
 
     proj_path = project.path
 
     if not path.exists(proj_path):
+        log.error("Directory '%s' not found", proj_path)
         raise FileNotFoundError(f'Directory "{proj_path}" not found')
 
-    try:
+    log.info("Analyzing %s", path.basename(path.normpath(proj_path)))
 
-        print(f"Analyzing {path.basename(path.normpath(proj_path))}\n" + "\n")
+    _search_tests(proj_path, results)
+    _search_benchmarks(proj_path, results)
+    _search_ci(proj_path, results)
+    _search_build_systems(proj_path, results)
+    _search_dependencies(proj_path, results)
 
-        _search_tests(proj_path, results)
-        _search_benchmarks(proj_path, results)
-        _search_ci(proj_path, results)
-        _search_build_systems(proj_path, results)
-        _search_dependencies(proj_path, results)
+    _file_output(results["build_systems"])
 
-        print("\nAnalyzing done\n")
+    log.info("Analyzing done")
 
-        with open("amphimixis.log", "w", encoding="utf8") as file:
-            json.dump(results, file, indent=4)
-            print()
-
-    except FileNotFoundError as e:
-        print(f"{e}")
-        sys.exit(-1)
+    return results
 
 
 def _rel_path(proj_path, paths):
@@ -71,59 +62,63 @@ def _find_paths(proj_path, pattern, dirs_only=True):
     return [p for p in paths if path.isdir(p)] if dirs_only else paths
 
 
-def _path_existence(proj_path, results, key, paths):
-    if paths:
-        results[f"{key}"] = _rel_path(proj_path, paths)
-
-
-def _path_output(proj_path, key, paths):
-    if paths:
-        first = _rel_path(proj_path, paths)[0]
-        print(f"{key}:".ljust(_TAB) + Colors.GREEN + first + Colors.NONE + "\n")
+def _log_results(proj_path, results, key, paths):
+    rel_paths = _rel_path(proj_path, paths) if paths else []
+    if rel_paths:
+        results[key] = rel_paths[0]
+        log.info("found %s: %s", key, rel_paths[0])
     else:
-        print(f"{key}:".ljust(_TAB) + Colors.RED + "not found\n" + Colors.NONE)
+        log.info("%s not found", key)
+
+
+def _file_output(results, file_name="amphimixis.analyzed"):
+    with open(
+        file_name,
+        "w",
+        encoding="utf8",
+    ) as file:
+        yaml.dump(results, file, sort_keys=False)
 
 
 def _search_tests(proj_path, results):
     paths = _find_paths(proj_path, "**/*test*")
-    _path_existence(proj_path, results, "tests", paths)
-    _path_output(proj_path, "tests", paths)
+    _log_results(proj_path, results, "tests", paths)
 
 
 def _search_benchmarks(proj_path, results):
-    paths = _find_paths(proj_path, "**/*benchmark*")
-    _path_existence(proj_path, results, "benchmarks", paths)
-    _path_output(proj_path, "benchmarks", paths)
+    paths = _find_paths(proj_path, "**/*bench*")
+    _log_results(proj_path, results, "benchmarks", paths)
 
 
 def _search_ci(proj_path, results):
     paths = []
     for pattern in ci_list:
         paths.extend(_find_paths(proj_path, pattern))
-    _path_existence(proj_path, results, "ci", paths)
-    _path_output(proj_path, "ci", paths)
+    _log_results(proj_path, results, "ci", paths)
 
 
 def _search_build_systems(proj_path, results):
-    print("build systems:")
-    for pattern, system in build_systems_list.items():
-        if _find_paths(proj_path, pattern, dirs_only=False):
-            results["build_systems"][system] = True
-            print("".ljust(_TAB) + f"{system}")
-    if not any(results["build_systems"].values()):
-        print("".ljust(_TAB) + Colors.RED + "not found" + Colors.NONE)
-    print()
+    log.info("build systems:")
+    found = False
+    for system, patterns in build_systems_list.items():
+        for pat in patterns:
+            if _find_paths(proj_path, pat, dirs_only=False):
+                results["build_systems"][system] = True
+                log.info(" %s", system)
+                found = True
+                break
+    if not found:
+        log.info(" not found")
 
 
 def _search_dependencies(proj_path, results):
+    log.info("dependencies:")
     dep_path = path.join(proj_path, "third_party")
     if path.exists(dep_path):
         dirs = [d for d in listdir(dep_path) if path.isdir(path.join(dep_path, d))]
         results["dependencies"].extend(dirs)
-    print("dependencies:")
     if results["dependencies"]:
         for dep in results["dependencies"]:
-            print("".ljust(_TAB) + f"{dep}")
+            log.info(" %s", dep)
     else:
-        print("".ljust(_TAB) + "not found")
-    print()
+        log.info(" not found")
