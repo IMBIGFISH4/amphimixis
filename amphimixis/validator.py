@@ -18,7 +18,7 @@ errors_count = 0
 logger = setup_logger("validator")
 
 
-def validate(file_name: str) -> bool:
+def validate(config_file_path: str) -> bool:
     """Main function to validate config file
 
     :rtype: bool
@@ -28,7 +28,7 @@ def validate(file_name: str) -> bool:
     """
 
     try:
-        with open(file_name, "r", encoding="UTF-8") as file:
+        with open(config_file_path, "r", encoding="UTF-8") as file:
 
             file_dict = yaml.safe_load(file)
 
@@ -151,7 +151,13 @@ def _is_valid_build(build: dict[str, str]):
 
 
 def _is_valid_address(address: str) -> bool:
-    """Function to check whether addtess id valid"""
+    """Function to check whether address is valid
+
+    :rtype: bool
+    :return: Outcome value :\n
+         True if address is valid
+         False if address is invalid
+    """
 
     try:
         ip_address(address)
