@@ -4,10 +4,11 @@
 
 from ipaddress import ip_address
 from re import compile as re_compile
+
 import yaml
 
-from amphimixis.general import general
 from amphimixis.build_systems import build_systems_dict
+from amphimixis.general import general
 from amphimixis.logger import setup_logger
 
 DEFAULT_PORT = 22
@@ -17,13 +18,17 @@ errors_count = 0
 logger = setup_logger("validator")
 
 
-def validate(file_name: str) -> None:
-    """Module enter funtcion"""
+def validate(file_name: str) -> bool:
+    """Main function to validate config file
+
+    :rtype: bool
+    :return: Outcome value :\n
+         True if config is valid
+         False if config is invalid
+    """
 
     try:
         with open(file_name, "r", encoding="UTF-8") as file:
-
-            global errors_count
 
             file_dict = yaml.safe_load(file)
 
@@ -32,137 +37,117 @@ def validate(file_name: str) -> None:
                 not isinstance(build_system, str)
                 or build_system.lower() not in build_systems_dict
             ):
-                logger.warning("Invalid build_system: %s", build_system)
-                errors_count += 1
+                _warn(f"Invalid build_system: {build_system}")
 
             runner = file_dict.get("runner")
             if not isinstance(runner, str) or runner.lower() not in build_systems_dict:
-                logger.warning("Invalid runner: %s", runner)
-                errors_count += 1
+                _warn(f"Invalid runner: {runner}")
 
             # validate platforms
             platforms = file_dict.get("platforms", {})
-            if platforms is None:
-                logger.warning("Platforms not found")
-                errors_count += 1
+            if platforms == {}:
+                _warn("Platforms not found")
 
             for platform in platforms:
                 __is_valid_platform(platform)
 
             # validate recipes
             recipes = file_dict.get("recipes", {})
-            if recipes is None:
-                logger.warning("Recipes not found")
-                errors_count += 1
+            if recipes == {}:
+                _warn("Recipes not found")
 
             for recipe in recipes:
                 _is_valid_recipe(recipe)
 
             # validate builds
             builds = file_dict.get("builds", {})
-            if builds is None:
-                logger.warning("Builds not found")
-                errors_count += 1
+            if builds == {}:
+                _warn("Builds not found")
 
             for build in builds:
                 _is_valid_build(build)
 
         logger.info("Validation completed, errors found: %s", errors_count)
 
+        # True if config is valid (0 errors)
+        # False if config is invalid (>0 errors)
+        return not bool(errors_count)
+
     except FileNotFoundError:
         logger.error("File not found")
+        return False
 
 
 def __is_valid_platform(platform: dict[str, str]):
     """Function to check whether plafrom is valid"""
 
-    global errors_count
-
     pl_id = platform.get("id")
     if not isinstance(pl_id, int):
-        logger.warning("Invalid id in platform: %s", pl_id)
-        errors_count += 1
+        _warn(f"Invalid id in platform: {pl_id}")
 
     arch = platform.get("arch")
     if not isinstance(arch, str) or arch.lower() not in general.Arch:
-        logger.warning("Invalid arch in platform %s: %s", pl_id, arch)
-        errors_count += 1
+        _warn(f"Invalid arch in platform {pl_id}: {arch}")
 
     address = platform.get("address")
     if address is not None and (
         not isinstance(address, str) or not _is_valid_address(address)
     ):
-        logger.warning("Invalid address in platform %s: %s", pl_id, address)
-        errors_count += 1
+        _warn(f"Invalid address in platform {pl_id}: {address}")
 
     username = platform.get("username")
     if (
         address is None and (username is not None and not isinstance(username, str))
     ) or (address is not None and not isinstance(username, str)):
-        logger.warning("Invalid username in platform %s: %s", pl_id, username)
-        errors_count += 1
+        _warn(f"Invalid username in platform {pl_id}: {username}")
 
     password = platform.get("password")
     if password is not None and not isinstance(password, str):
-        logger.warning("Invalid password in platform %s: %s", pl_id, password)
-        errors_count += 1
+        _warn(f"Invalid password in platform {pl_id}: {password}")
 
     port = platform.get("port", DEFAULT_PORT)
     if not isinstance(port, int) or not 1 <= port <= 65535:
-        logger.warning("Invalid port in platform %s: %s", pl_id, port)
-        errors_count += 1
+        _warn(f"Invalid port in platform {pl_id}: {port}")
 
 
 def _is_valid_recipe(recipe: dict[str, str]):
     """Function to check whether recipe is valid"""
 
-    global errors_count
-
     re_id = recipe.get("id")
     if not isinstance(re_id, int):
-        logger.warning("Invalid id in recipe: %s", re_id)
-        errors_count += 1
+        _warn(f"Invalid id in recipe: {re_id}")
 
     config_flags = recipe.get("config_flags")
     if not isinstance(config_flags, str):
-        logger.warning("Invalid config_flags in recipe %s: %s", re_id, config_flags)
-        errors_count += 1
+        _warn(f"Invalid config_flags in recipe {re_id}: {config_flags}")
 
     compiler_flags = recipe.get("compiler_flags")
     if not isinstance(compiler_flags, str):
-        logger.warning("Invalid compiler_flags in recipe %s: %s", re_id, compiler_flags)
-        errors_count += 1
+        _warn(f"Invalid compiler_flags in recipe {re_id}: {compiler_flags}")
 
 
 def _is_valid_build(build: dict[str, str]):
     """Function to check whether build is valid"""
 
-    global errors_count
-
     build_machine = build.get("build_machine")
     if not isinstance(build_machine, int):
-        logger.warning("Invalid build_machine in build: %s", build_machine)
-        errors_count += 1
+        _warn(f"Invalid build_machine in build: {build_machine}")
 
     run_machine = build.get("run_machine")
     if not isinstance(run_machine, int):
-        logger.warning("Invalid run_machine in build: %s", run_machine)
-        errors_count += 1
+        _warn(f"Invalid run_machine in build: {run_machine}")
 
     recipe_id = build.get("recipe_id")
     if not isinstance(recipe_id, int):
-        logger.warning("Invalid recipe_id in build: %s", recipe_id)
-        errors_count += 1
+        _warn(f"Invalid recipe_id in build: {recipe_id}")
 
     toolchain = build.get("toolchain")
     if toolchain is not None and not isinstance(toolchain, str):
-        logger.warning("Invalid toolchain in build: %s", toolchain)
-        errors_count += 1
+        _warn(f"Invalid toolchain in build: {toolchain}")
 
     sysroot = build.get("sysroot")
     if sysroot is not None and not isinstance(sysroot, str):
-        logger.warning("Invalid sysroot in build: %s", sysroot)
-        errors_count += 1
+        _warn(f"Invalid sysrott in build: {sysroot}")
 
 
 def _is_valid_address(address: str) -> bool:
@@ -186,3 +171,10 @@ def _is_valid_address(address: str) -> bool:
             r"(\.(?!-)[A-Za-z0-9-]{1,63}(?<!-))*\.?$"
         )
         return bool(hostname_pattern.match(address))
+
+
+def _warn(msg: str) -> None:
+    """Function that handles messages due to invalid fields in config"""
+    global errors_count
+    errors_count += 1
+    logger.warning(msg)
