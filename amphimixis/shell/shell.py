@@ -1,11 +1,12 @@
 """Module for shell operations."""
 
 import socket
+import subprocess
 from ctypes import ArgumentError
 from typing import List, Self, Tuple
 
+from amphimixis import logger
 from amphimixis.general import MachineInfo
-
 from amphimixis.shell.local_shell_handler import _LocalShellHandler
 from amphimixis.shell.shell_interface import IShellHandler
 from amphimixis.shell.ssh_shell_handler import _SSHHandler
@@ -20,6 +21,7 @@ class Shell:
     """
 
     def __init__(self, machine: MachineInfo, connect_timeout=5):
+        self.logger = logger.setup_logger("SHELL")
         self._shell: IShellHandler
         self.machine = machine
         self.connect_timeout = connect_timeout
@@ -61,8 +63,8 @@ class Shell:
         :rtype: Tuple[int, List[List[str]], List[List[str]]]
         :return: A tuple of three :\n
             - :int: error code of the last executed command
-            - :List[List[str]]: lines from stdout of each command
-            - :List[List[str]]: lines from stderr of each command
+            - :List[List[str]]: List[str] is lines of the stdout of an executed command.
+            - :List[List[str]]: List[str] is lines of the stderr of an executed command.
         """
 
         stdout: List[List[str]] = []
@@ -96,13 +98,74 @@ class Shell:
         return (error_code, stdout, stderr)
 
     def copy_to_remote(self, source: str, destination: str) -> bool:
-        """Copy a file or folder from the host machine to remote machine
+        """Send a file or folder to the target machine
         Absolute paths are needed
 
         :var str source: absolute path to a file or folder on the host machine
-        :var str destination: absolute path to copy a file or folder to on the target machine
+        :var str destination: absolute path to copy a file or folder to on the controlled machine
 
-        :return: True if successful copied else False
+        :return: True if successfully copied else False
+        """
+        if self.machine.auth is None:
+            _destination = destination
+        else:
+            _destination = (
+                f"{self.machine.auth.username}@{self.machine.address}:{destination}"
+            )
+
+        return self._copy(source, _destination)
+
+    def copy_to_host(self, source: str, destination: str) -> bool:
+        """Gets a file or folder from the target machine
+        Absolute paths are needed
+
+        :var str source: absolute path to a file or folder on the controlled machine
+        :var str destination: absolute path to copy a file or folder to on the host machine
+
+        :return: True if successfully copied else False
         """
 
-        return self._shell.copy_to_remote(source, destination)
+        if self.machine.auth is None:
+            _source = source
+        else:
+            _source = f"{self.machine.auth.username}@{self.machine.address}:{source}"
+
+        return self._copy(_source, destination)
+
+    def _copy(self, source: str, destination: str) -> bool:
+        if self.machine.auth is None:
+            port = -1  # should be OK with local copying
+            password = "nopasswd"
+        else:
+            port = self.machine.auth.port
+            # if None or empty string, ssh-agent is supposed
+            password = self.machine.auth.password or "nopasswd"
+
+        self.logger.info("Copying %s -> %s", source, destination)
+        error_code = subprocess.call(
+            [
+                "sshpass",
+                "-p",
+                password,
+                "rsync",
+                "--checksum",
+                "--archive",
+                "--recursive",
+                "--mkpath",
+                "--copy-links",
+                "--hard-links",
+                "--compress",
+                "--log-file=./amphimixis.log",
+                "--port",
+                str(port),
+                source,
+                destination,
+            ]
+        )
+
+        if error_code != 0:
+            self.logger.error("Error %s -> %s", source, destination)
+            return False
+
+        self.logger.info("Success %s -> %s", source, destination)
+        return True

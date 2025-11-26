@@ -1,23 +1,15 @@
 """Local shell handler implementation."""
 
-import os
 import subprocess
 
-import amphimixis.logger
 from amphimixis.shell.shell_interface import IShellHandler
-
-logging = amphimixis.logger.setup_logger("LOCAL_SHELL")
 
 
 class _LocalShellHandler(IShellHandler):
     def __init__(self) -> None:
-        default_shell = os.getenv("SHELL")
-        if default_shell is None:
-            raise TypeError("Can't get default shell path")
-
         # pylint: disable=consider-using-with
         self.shell = subprocess.Popen(
-            [default_shell],
+            ["bash"],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -57,29 +49,3 @@ class _LocalShellHandler(IShellHandler):
         if self.shell.stderr is None:
             raise BrokenPipeError("Can't read from process' stderr")
         return self.shell.stderr.readline().decode()
-
-    def copy_to_remote(self, source: str, destination: str) -> bool:
-        logging.info("Copying files")
-
-        error_code = subprocess.call(
-            [
-                "rsync",
-                "--checksum",
-                "--archive",
-                "--recursive",
-                "--mkpath",
-                "--copy-links",
-                "--hard-links",
-                "--compress",
-                "--log-file=./amphimixis.log",
-                source,
-                destination,
-            ]
-        )
-
-        if error_code != 0:
-            logging.error("Error %s -> %s", source, destination)
-            return False
-
-        logging.info("Success %s -> %s", source, destination)
-        return True
