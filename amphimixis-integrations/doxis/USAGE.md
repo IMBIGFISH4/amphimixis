@@ -36,7 +36,7 @@ The default model is `opencode/big-pickle`. To choose a model and provide an
 OpenCode configuration file:
 
 ```bash
-amixis doxis run doxis-projects.txt \
+amixis doxis run projects \
   --config ./my-opencode.json --model PROVIDER/MODEL
 ```
 
@@ -62,6 +62,10 @@ a successful runner exit alone does not establish that every project succeeded.
 ### Build and run
 
 `run` uses an existing image and fails if it is missing. To rebuild before running:
+
+```bash
+amixis doxis build-image run projects
+```
 
 Images embed the checkout's code, agents, and tools at build time. Rebuild after
 changing them. The default image tag is `amphimixis-opencode:latest`.
@@ -141,9 +145,8 @@ as `input.yml`:
 2. `amphimixis-integrations/doxis/data/<project>.yaml`
 3. `amphimixis-integrations/doxis/data/sample.yml`
 
-See the [Amphimixis configuration reference](../../docs/config_instruction.md)
-for YAML fields and the [Amphimixis-AI guide](../../docs/amphimixis-ai.md) for
-pipeline details.
+See the [Amphimixis configuration reference][amphimixis-config]
+for YAML fields.
 
 ## Resume or start again
 
@@ -283,3 +286,7 @@ AMPHIMIXIS_IMAGE=my-amphimixis:latest \
 The entrypoint attempts to set `perf_event_paranoid=-1`, but continues if that
 setting is not writable. A running container alone does not guarantee that
 profiling permissions are available.
+
+<!-- Documentation links -->
+
+[amphimixis-config]: ../../docs/config_instruction.md

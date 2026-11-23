@@ -17,6 +17,7 @@ This document describes how the Amphimixis-AI agent system (see [ai-system-doc.m
 amphimixis-integrations/
 ├── ai-system-doc.md       <- general info about the agent system (implementation-agnostic)
 ├── inspector_general/      <- report inspector package (shared, single source)
+├── doxis/                 <- Docker image, batch runner, entrypoint, and input samples
 └── opencode/
     ├── opencode-implementation.md
     ├── agents/             <- agent definitions

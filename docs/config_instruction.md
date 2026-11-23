@@ -4,6 +4,27 @@ This guide explains how to create and configure your project’s configuration f
 
 See the [Example Configuration File](input.yml).
 
+## Configuration for Doxis
+
+For a fresh Doxis run, the runner copies the first existing file below to the
+host workspace as `input.yml`, mounted at `/work/input.yml` in the container:
+
+1. `amphimixis-integrations/doxis/data/<project>.yml`
+2. `amphimixis-integrations/doxis/data/<project>.yaml`
+3. `amphimixis-integrations/doxis/data/sample.yml`
+
+These files use the YAML schema described below. The default sample compares
+two local x86 builds; adapt platforms, recipes, and executables for your task.
+A platform without `address` refers to the container machine. Local paths to
+compilers and other tools must exist inside the container.
+
+For `amixis doxis`, `--config` selects an **OpenCode JSON** file for model
+providers and OpenCode settings. It does not select Amphimixis YAML. Host
+OpenCode settings and credentials are not automatically mounted.
+
+`--resume` preserves the existing workspace YAML instead of copying from
+`data/` again. See the [Doxis guide](../amphimixis-integrations/doxis/USAGE.md) for configuration and resume details.
+
 ## General structure
 
 The YAML configuration file consists of the following **top-level fields**:

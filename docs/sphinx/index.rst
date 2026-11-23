@@ -86,6 +86,7 @@ Quick Start
    :hidden:
 
    amphimixis-ai
+   doxis
    usage_guide
    config_instruction
    input

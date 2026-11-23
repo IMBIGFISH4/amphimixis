@@ -28,6 +28,30 @@ amixis run /path/to/project --config local.yml
 
 ## Choose an installation method
 
+- **For the containerized LLM-agent workflow — use Doxis:**
+
+Doxis runs the pipeline for a list of projects, with one disposable container per
+project. You need a repository checkout, Bash, and Docker with its daemon running
+and accessible to your user. Builds and runs need network access and, when
+required, credentials for your model provider.
+
+```bash
+git clone https://github.com/Amphimixis/amphimixis
+cd amphimixis
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+echo "tinyxml2\n" > project
+amixis doxis build-image
+amixis doxis run project
+```
+
+The image includes OpenCode, the Amphimixis agents and tools, build tools, and
+RISC-V cross-compilation and QEMU tools. Host installation of OpenCode and agents
+is unnecessary. Alternatively, use the Bash scripts without installing host
+`amixis`. See the [Doxis guide](../amphimixis-integrations/doxis/USAGE.md) for provider configuration, scripts,
+results, and resume.
+
 - **For the LLM-agent workflow — install with Opencode integration:**
 
 The `amixis opencode` command runs Amphimixis inside [Opencode](https://opencode.ai) as an
